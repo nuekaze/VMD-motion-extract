@@ -3,7 +3,7 @@ import sys
 from pprint import pprint
 
 try:
-    if sys.argv[1] == '-h' || sys.argv[1] == '--help':
+    if sys.argv[1] == '-h' or sys.argv[1] == '--help':
         print('Usage: motion.py [input.vmd [output.txt]] | [-h|--help]')
         exit()
 
@@ -47,8 +47,10 @@ print('MMD model: %s' % model)
 # Go through all frames for motion
 print('Processing motion. This may take a few seconds...')
 for i in range(k_frames):
-    bone = k_data[0:15] # Bone name, I don't know  how to decode this shit
-    frame = struct.unpack('i', k_data[15:19])[0] # Frame number
+    # Bone name, I don't know  how to decode this shit
+    bone = k_data[0:15].replace(b'\x00', b'').hex()
+    # Frame number
+    frame = struct.unpack('i', k_data[15:19])[0]
 
     # Motion relative to default position
     xc = struct.unpack('f', k_data[19:23])[0]
@@ -58,9 +60,12 @@ for i in range(k_frames):
     yr = struct.unpack('f', k_data[35:39])[0]
     zr = struct.unpack('f', k_data[39:43])[0]
 
-    i_data = k_data[43:111] # Interpolation data
-    keyframes.append((bone, frame, xc, yc, zc, xr, yr, zr, i_data)) # Add keyframe to list of keyframes
-    k_data = k_data[111:] # jump to next frame
+    # Interpolation data
+    i_data = k_data[43:111].hex()
+    # Add keyframe to list of keyframes
+    keyframes.append((bone, frame, xc, yc, zc, xr, yr, zr, i_data))
+    # jump to next frame
+    k_data = k_data[111:]
 
 print('Done.')
 #print('\n'.join('%s, %i, %f, %f, %f, %f, %f, %f, %s' % x for x in keyframes))
@@ -72,6 +77,6 @@ except IndexError:
     pass
 
 with open(output_file, 'w') as f:
-    print('Writing data to file.')
+    print('Writing data to %s.' % output_file)
     f.write('\n'.join('%s, %i, %f, %f, %f, %f, %f, %f, %s' % x for x in keyframes))
 print('Done. Exiting.')

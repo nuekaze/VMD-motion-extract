@@ -11,8 +11,8 @@ except IndexError:
     pass
 
 # Enter motion file here or use argument.
-motion_file = 'motion.vmd'
-output_file = 'result.txt'
+motion_file = 'input.vmd'
+output_file = 'output.txt'
 try:
     if sys.argv[1]:
         motion_file = sys.argv[1]

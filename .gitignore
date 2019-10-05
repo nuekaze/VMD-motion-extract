@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Project specific
+.txt
+.vmd
+
 # C extensions
 *.so
 

@@ -211,9 +211,9 @@ except IndexError:
 with open(output_file, 'w') as f:
     print('Writing data to %s.' % output_file)
     if motion:
-        f.write('\n'.join('%s, %i, %f, %f, %f, %f, %f, %f, %s' % x for x in motion_keyframes))
+        f.write('\n'.join('%s,%i,%f,%f,%f,%f,%f,%f,%s' % x for x in motion_keyframes))
     if face:
-        f.write('\n'.join('%s, %i, %f' % x for x in face_keyframes))
+        f.write('\n'.join('%s,%i,%f' % x for x in face_keyframes))
     if camera:
-        f.write('\n'.join('%i, %f, %f, %f, %f, %f, %f, %f, %s, %i, %i' % x for x in camera_keyframes))
+        f.write('\n'.join('%i,%f,%f,%f,%f,%f,%f,%f,%s,%i,%i' % x for x in camera_keyframes))
 print('Done. Exiting.')

@@ -7,13 +7,14 @@ import struct, sys
 def help():
     print('Usage: motion.py input.vmd [output.txt] [OPTIONS]\n')
     print('\n'.join([
-        'List of options:',
-        '    -m, --motion: Process motion data.',
-        '    -f, --face:   Process face data.',
-        '    -c, --camera: Process camera data.',
+        'List of options',
+        '    -m, --motion:   Process motion data.',
+        '    -f, --face:     Process face data.',
+        '    -c, --camera:   Process camera data.',
         '',
-        '    -h, --help:   Show this help message.',
-        '    -d, --debug:  Enable debugging.',
+        '    -h, --help:     Show this help message.',
+        '    -v, --verbose:  Show some more info.',
+        '    -d, --debug:    Enable debugging.',
     ]))
 
 """
@@ -57,11 +58,14 @@ if not skip:
         camera = 1
 
 debug = 0
+verbose = 0
 if '-d' in sys.argv or '--debug' in sys.argv:
     print('Debugging.')
     debug = 1
     from pprint import pprint
 
+if '-v' in sys.argv or '--verbose' in sys.argv:
+    verbose = 1
 # Enter motion file here or use argument.
 motion_file = 'input.vmd'
 output_file = 'output.txt'
@@ -109,12 +113,16 @@ try:
 except NameError:
     pass
 
+if debug or verbose:
+    print('Motion frames: %i' % k_frames)
 if camera != 2:
     # Process motion data.
     motion_keyframes = []
     if motion:
         print('Processing motion data. This may take a few seconds...')
         for i in range(k_frames):
+            if debug:
+                print(k_data[0:73])
             # Bone name, I don't know how to decode this shit
             bone = k_data[0:15].replace(b'\x00', b'').hex()
             # Frame number
@@ -142,20 +150,25 @@ if camera != 2:
         if debug:
             pprint(motion_keyframes)
 
-    # Process face data. Same process as motion data so I will skip comments.
-    face_keyframes = []
+# Process face data. Same process as motion data so I will skip comments.
+face_keyframes = []
+k_frames = struct.unpack('i', k_data[0:4])[0]
+k_data = k_data[4:]
+if debug or verbose:
+    print('Face frames: %i' % k_frames)
+if camera != 2:
     if face:
         print('Processing face data. This may take a few seconds...')
-        k_frames = struct.unpack('i', k_data[0:4])[0]
-        k_data = k_data[4:]
         for i in range(k_frames):
+            if debug:
+                print(k_data[0:73])
             bone = k_data[0:15].replace(b'\x00', b'').hex()
             frame = struct.unpack('i', k_data[15:19])[0]
             value = struct.unpack('f', k_data[19:23])[0]
             face_keyframes.append((bone, frame, value))
             k_data = k_data[23:]
     else:
-        k_data = k_data[111*k_frames:]
+        k_data = k_data[23*k_frames:]
 
     if face:
         print('Done.')
@@ -164,29 +177,30 @@ if camera != 2:
 
 # Process camera data. Same process as face data.
 camera_keyframes = []
+k_frames = struct.unpack('i', k_data[0:4])[0]
+k_data = k_data[4:]
+if debug or verbose:
+    print('Camera frames: %i' % k_frames)
 if camera:
     print('Processing camera data. This may take a few seconds...')
-    k_frames = struct.unpack('i', k_data[0:4])[0]
-    k_data = k_data[4:]
     for i in range(k_frames):
-        if camera:
-            frame = struct.unpack('i', k_data[0:4])[0]
-            length = struct.unpack('f', k_data[4:8])[0]
-            xc = struct.unpack('f', k_data[8:12])[0]
-            yc = struct.unpack('f', k_data[12:16])[0]
-            zc = struct.unpack('f', k_data[16:20])[0]
-            xr = struct.unpack('f', k_data[24:28])[0]
-            yr = struct.unpack('f', k_data[32:36])[0]
-            zr = struct.unpack('f', k_data[36:40])[0]
-            i_data = k_data[40:64].hex()
-            fov = struct.unpack('i', k_data[68:72])[0]
-            perspective = struct.unpack('i', k_data[72])[0]
-            camera_keyframes.append((frame, length, xc, yc, zc, xr, yr, zr, i_data, fov, perspective))
-        k_data = k_data[73:]
-    if camera:
-        print('Done.')
         if debug:
-            pprint(camera_keyframes)
+            print(k_data[0:61])
+        frame = struct.unpack('i', k_data[0:4])[0]
+        length = struct.unpack('f', k_data[4:8])[0]
+        xc = struct.unpack('f', k_data[8:12])[0]
+        yc = struct.unpack('f', k_data[12:16])[0]
+        zc = struct.unpack('f', k_data[16:20])[0]
+        xr = struct.unpack('f', k_data[20:24])[0]
+        yr = struct.unpack('f', k_data[24:28])[0]
+        zr = struct.unpack('f', k_data[28:32])[0]
+        i_data = k_data[32:56].hex()
+        fov = struct.unpack('i', k_data[56:60])[0]
+        perspective = k_data[60]
+        camera_keyframes.append((frame, length, xc, yc, zc, xr, yr, zr, i_data, fov, perspective))
+        k_data = k_data[61:]
+    if debug:
+        pprint(camera_keyframes)
 
 try:
     if sys.argv[2] and sys.argv[2][0] != '-':

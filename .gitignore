@@ -4,8 +4,8 @@ __pycache__/
 *$py.class
 
 # Project specific
-.txt
-.vmd
+*.txt
+*.vmd
 
 # C extensions
 *.so

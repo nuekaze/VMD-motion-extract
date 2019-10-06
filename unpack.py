@@ -1,6 +1,6 @@
 """
 Author: Nue-class Destroyer
-License: BSD-2 Simplified
+License: BSD 2-Clause "Simplified" License
 """
 import struct, sys
 
@@ -83,7 +83,8 @@ Begin real work
 raw = None
 try:
     with open(motion_file, 'rb') as f:
-        print('Using %s\nLoading VMD file...' % motion_file)
+        if debug or verbose:
+            print('Using %s\nLoading VMD file...' % motion_file)
         raw = f.read()
 except FileNotFoundError:
     print('%s was not found.')
@@ -91,20 +92,24 @@ except FileNotFoundError:
 
 # This line is UTF-8, Program version
 version = raw[0:30]
-print('MMD version: %s' % version.decode('utf-8'))
+if debug or verbose:
+    print('MMD version: %s' % version.decode('utf-8'))
 
 # Sometimes the character model uses UTF-8 and sometimes UTF-16
 try:
     model = raw[30:50].replace(b'\x00', b'').decode('utf-8')
-    print('MMD model: %s' % model)
+    if debug or verbose:
+        print('MMD model: %s' % model)
     model = raw[30:50].hex()
 except UnicodeDecodeError:
     try:
         model = raw[30:50].replace(b'\x00', b'').decode('utf-16')
-        print('MMD model: %s' % model)
+        if debug or verbose:
+            print('MMD model: %s' % model)
         model = raw[30:50].hex()
     except UnicodeDecodeError:
-        print('No model is present. This is probably camera data.\nWill try to process camera data only.')
+        if debug or verbose:
+            print('No model is present. This is probably camera data.\nWill try to process camera data only.')
         motion = 0
         face = 0
         camera = 2
@@ -119,7 +124,8 @@ if debug or verbose:
     print('Motion frames: %i' % k_frames)
 if camera != 2:
     if motion:
-        print('Processing motion data. This may take a few seconds...')
+        if debug or verbose:
+            print('Processing motion data. This may take a few seconds...')
         for i in range(k_frames):
             if debug:
                 print(k_data[0:73])
@@ -146,7 +152,6 @@ if camera != 2:
         k_data = k_data[111*k_frames:]
 
     if motion:
-        print('Done.')
         if debug:
             pprint(motion_keyframes)
 
@@ -158,7 +163,8 @@ if debug or verbose:
     print('Face frames: %i' % k_frames)
 if camera != 2:
     if face:
-        print('Processing face data. This may take a few seconds...')
+        if debug or verbose:
+            print('Processing face data. This may take a few seconds...')
         for i in range(k_frames):
             if debug:
                 print(k_data[0:73])
@@ -171,7 +177,6 @@ if camera != 2:
         k_data = k_data[23*k_frames:]
 
     if face:
-        print('Done.')
         if debug:
             pprint(face_keyframes)
 
@@ -182,7 +187,8 @@ k_data = k_data[4:]
 if debug or verbose:
     print('Camera frames: %i' % k_frames)
 if camera:
-    print('Processing camera data. This may take a few seconds...')
+    if debug or verbose:
+        print('Processing camera data. This may take a few seconds...')
     for i in range(k_frames):
         if debug:
             print(k_data[0:61])
@@ -209,7 +215,8 @@ except IndexError:
     pass
 
 with open(output_file, 'w') as f:
-    print('Writing data to %s.' % output_file)
+    if debug or verbose:
+        print('Writing data to %s.' % output_file)
     # Add some metadata
     f.write('%s,%s,%i,%i,%i\n' % (version.hex(), model, len(motion_keyframes), len(face_keyframes), len(camera_keyframes)))
     if motion:
@@ -218,4 +225,5 @@ with open(output_file, 'w') as f:
         f.write('\n'.join('%s,%i,%f' % x for x in face_keyframes))
     if camera:
         f.write('\n'.join('%i,%f,%f,%f,%f,%f,%f,%f,%s,%i,%i' % x for x in camera_keyframes))
-print('Done. Exiting.')
+if debug or verbose:
+    print('Done. Exiting.')

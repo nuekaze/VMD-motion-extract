@@ -1,6 +1,6 @@
 """
 Author: Nue-class Destroyer
-License: BSD-2 Simplified
+License: BSD 2-Clause "Simplified" License
 """
 import struct, sys
 

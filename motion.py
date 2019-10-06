@@ -90,43 +90,43 @@ except FileNotFoundError:
     exit()
 
 # This line is UTF-8, Program version
-version = raw[0:30].decode('utf-8')
-print('MMD version: %s' % version)
+version = raw[0:30]
+print('MMD version: %s' % version.decode('utf-8'))
 
 # Sometimes the character model uses UTF-8 and sometimes UTF-16
 try:
     model = raw[30:50].replace(b'\x00', b'').decode('utf-8')
+    print('MMD model: %s' % model)
+    model = raw[30:50].hex()
 except UnicodeDecodeError:
     try:
         model = raw[30:50].replace(b'\x00', b'').decode('utf-16')
+        print('MMD model: %s' % model)
+        model = raw[30:50].hex()
     except UnicodeDecodeError:
         print('No model is present. This is probably camera data.\nWill try to process camera data only.')
         motion = 0
         face = 0
         camera = 2
+        model = raw[30:50].hex()
 
-k_frames = struct.unpack('i', raw[50:54])[0] # Unsigned int, Number of keyframes
+k_frames = struct.unpack('I', raw[50:54])[0] # Unsigned int, Number of keyframes
 k_data = raw[54:]
 
-try:
-    print('MMD model: %s' % model)
-except NameError:
-    pass
-
+# Process motion data.
+motion_keyframes = []
 if debug or verbose:
     print('Motion frames: %i' % k_frames)
 if camera != 2:
-    # Process motion data.
-    motion_keyframes = []
     if motion:
         print('Processing motion data. This may take a few seconds...')
         for i in range(k_frames):
             if debug:
                 print(k_data[0:73])
             # Bone name, I don't know how to decode this shit
-            bone = k_data[0:15].replace(b'\x00', b'').hex()
+            bone = k_data[0:15].hex()
             # Frame number
-            frame = struct.unpack('i', k_data[15:19])[0]
+            frame = struct.unpack('I', k_data[15:19])[0]
 
             # Motion relative to default position
             xc = struct.unpack('f', k_data[19:23])[0]
@@ -152,7 +152,7 @@ if camera != 2:
 
 # Process face data. Same process as motion data so I will skip comments.
 face_keyframes = []
-k_frames = struct.unpack('i', k_data[0:4])[0]
+k_frames = struct.unpack('I', k_data[0:4])[0]
 k_data = k_data[4:]
 if debug or verbose:
     print('Face frames: %i' % k_frames)
@@ -162,8 +162,8 @@ if camera != 2:
         for i in range(k_frames):
             if debug:
                 print(k_data[0:73])
-            bone = k_data[0:15].replace(b'\x00', b'').hex()
-            frame = struct.unpack('i', k_data[15:19])[0]
+            bone = k_data[0:15].hex()
+            frame = struct.unpack('I', k_data[15:19])[0]
             value = struct.unpack('f', k_data[19:23])[0]
             face_keyframes.append((bone, frame, value))
             k_data = k_data[23:]
@@ -186,7 +186,7 @@ if camera:
     for i in range(k_frames):
         if debug:
             print(k_data[0:61])
-        frame = struct.unpack('i', k_data[0:4])[0]
+        frame = struct.unpack('I', k_data[0:4])[0]
         length = struct.unpack('f', k_data[4:8])[0]
         xc = struct.unpack('f', k_data[8:12])[0]
         yc = struct.unpack('f', k_data[12:16])[0]
@@ -195,7 +195,7 @@ if camera:
         yr = struct.unpack('f', k_data[24:28])[0]
         zr = struct.unpack('f', k_data[28:32])[0]
         i_data = k_data[32:56].hex()
-        fov = struct.unpack('i', k_data[56:60])[0]
+        fov = struct.unpack('I', k_data[56:60])[0]
         perspective = k_data[60]
         camera_keyframes.append((frame, length, xc, yc, zc, xr, yr, zr, i_data, fov, perspective))
         k_data = k_data[61:]
@@ -210,6 +210,8 @@ except IndexError:
 
 with open(output_file, 'w') as f:
     print('Writing data to %s.' % output_file)
+    # Add some metadata
+    f.write('%s,%s,%i,%i,%i\n' % (version.hex(), model, len(motion_keyframes), len(face_keyframes), len(camera_keyframes)))
     if motion:
         f.write('\n'.join('%s,%i,%f,%f,%f,%f,%f,%f,%s' % x for x in motion_keyframes))
     if face:

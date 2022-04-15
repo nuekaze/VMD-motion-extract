@@ -1,4 +1,4 @@
-# VMD motion explorer
+# VMD motion extract
 
 <p>A simple tool to convert VMD motion data for Miku Miku Dance into a text file and back again. I have noticed that some data is lost or changed when just converting from vmd to txt and then back. But the files still works and I can not see any difference in the motion in MMD.</p>
 <p>

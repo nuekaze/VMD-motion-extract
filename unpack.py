@@ -91,22 +91,20 @@ except FileNotFoundError:
     exit()
 
 # This line is UTF-8, Program version
-version = raw[0:30]
+version = raw[0:30].split(b'\x00')[0].decode('utf-8')
 if debug or verbose:
-    print('MMD version: %s' % version.decode('utf-8'))
+    print('MMD version: %s' % version)
 
 # Sometimes the character model uses UTF-8 and sometimes UTF-16
 try:
-    model = raw[30:50].replace(b'\x00', b'').decode('utf-8')
+    model = raw[30:50].split(b'\x00')[0].decode('utf-8')
     if debug or verbose:
         print('MMD model: %s' % model)
-    model = raw[30:50].hex()
 except UnicodeDecodeError:
     try:
-        model = raw[30:50].replace(b'\x00', b'').decode('utf-16')
+        model = raw[30:50].split(b'\x00')[0].decode('Swift_JIS')
         if debug or verbose:
             print('MMD model: %s' % model)
-        model = raw[30:50].hex()
     except UnicodeDecodeError:
         if debug or verbose:
             print('No model is present. This is probably camera data.\nWill try to process camera data only.')
@@ -129,8 +127,13 @@ if camera != 2:
         for i in range(k_frames):
             if debug:
                 print(k_data[0:73])
+
             # Bone name, I don't know how to decode this shit
-            bone = k_data[0:15].hex()
+            try:
+                bone = k_data[0:15].split(b'\x00')[0].decode('utf-8')
+            except UnicodeDecodeError:
+                bone = k_data[0:15].split(b'\x00')[0].decode('Shift_JIS')
+                
             # Frame number
             frame = struct.unpack('I', k_data[15:19])[0]
 
@@ -168,7 +171,11 @@ if camera != 2:
         for i in range(k_frames):
             if debug:
                 print(k_data[0:73])
-            bone = k_data[0:15].hex()
+            try:
+                bone = k_data[0:15].split(b'\x00')[0].decode('utf-8')
+            except UnicodeDecodeError:
+                bone = k_data[0:15].split(b'\x00')[0].decode('Shift_JIS')
+
             frame = struct.unpack('I', k_data[15:19])[0]
             value = struct.unpack('f', k_data[19:23])[0]
             face_keyframes.append((bone, frame, value))
@@ -218,7 +225,7 @@ with open(output_file, 'w') as f:
     if debug or verbose:
         print('Writing data to %s.' % output_file)
     # Add some metadata
-    f.write('%s,%s,%i,%i,%i\n' % (version.hex(), model, len(motion_keyframes), len(face_keyframes), len(camera_keyframes)))
+    f.write('%s,%s,%i,%i,%i\n' % (version, model, len(motion_keyframes), len(face_keyframes), len(camera_keyframes)))
     if motion:
         f.write('\n'.join('%s,%i,%f,%f,%f,%f,%f,%f,%s' % x for x in motion_keyframes))
     if face:

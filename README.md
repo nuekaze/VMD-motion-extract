@@ -4,9 +4,6 @@
 <p>
 Because I cannot decode the some names or interpolation data I just wrote them as hex code. Not that it matters what their names are anyway.</p>
 <p>
-There are some issues still with decoding some names. Especially the bone names. I cant manage to decode them so I will just leave it as is for the moment.
-The interpolation data is also untouched because I could not find any documentation on it. Not that I looked for very long.</p>
-<p>
 Have fun!
 </p>
 
@@ -30,16 +27,16 @@ Do <code>--help</code> for list of options.
 
 <p>First line if the file contains some meta data.<br/>
   <code>
-    MMD Version(hex), Model name(hex), number of motion frames(int), number of face frames(int), number of camera frames(int)
+    MMD Version, Model name, number of motion frames(int), number of face frames(int), number of camera frames(int)
   </code></p>
 <p>Motion data<br />
 <code>
-Bone name(hex), Frame number(int), X-position(float), Y-position(float), Z-position(float), X-rotation(float), Y-rotation(float), Z-rotation(float), Interpolation data(hex)
+Bone name, Frame number(int), X-position(float), Y-position(float), Z-position(float), X-rotation(float), Y-rotation(float), Z-rotation(float), Interpolation data(hex)
 </code></p>
 <p>
 Face data<br />
 <code>
-Part name(hex), frame number(int), Value(float)
+Blendshape name, frame number(int), Value(float)
 </code></p>
 <p>
 Camera data<br />

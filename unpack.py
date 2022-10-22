@@ -1,11 +1,11 @@
 """
-Author: Nue-class Destroyer
+Author: Nuekaze
 License: BSD 2-Clause "Simplified" License
 """
 import struct, sys
 
 def help():
-    print('Usage: motion.py input.vmd [output.txt] [OPTIONS]\n')
+    print('Usage: motion.py input.vmd [output.csv] [OPTIONS]\n')
     print('\n'.join([
         'List of options',
         '    -m, --motion:   Process motion data.',
@@ -68,7 +68,7 @@ if '-v' in sys.argv or '--verbose' in sys.argv:
     verbose = 1
 # Enter motion file here or use argument.
 motion_file = 'input.vmd'
-output_file = 'output.txt'
+output_file = 'output.csv'
 try:
     if sys.argv[1] and sys.argv[1][0] != '-':
         motion_file = sys.argv[1]
@@ -95,14 +95,18 @@ version = raw[0:30].split(b'\x00')[0].decode('utf-8')
 if debug or verbose:
     print('MMD version: %s' % version)
 
-# Sometimes the character model uses UTF-8 and sometimes UTF-16
+model_name_encoding = "utf-8"
+bones_name_encoding = "utf-8"
+
+# Sometimes the character model uses UTF-8 and sometimes shift-jis.
 try:
     model = raw[30:50].split(b'\x00')[0].decode('utf-8')
     if debug or verbose:
         print('MMD model: %s' % model)
 except UnicodeDecodeError:
     try:
-        model = raw[30:50].split(b'\x00')[0].decode('Swift_JIS')
+        model = raw[30:50].split(b'\x00')[0].decode('shift_jis')
+        model_name_encoding = "shift_jis"
         if debug or verbose:
             print('MMD model: %s' % model)
     except UnicodeDecodeError:
@@ -128,11 +132,12 @@ if camera != 2:
             if debug:
                 print(k_data[0:73])
 
-            # Bone name, I don't know how to decode this shit
+            # Bone name. I actually do know how to decode it now.
             try:
                 bone = k_data[0:15].split(b'\x00')[0].decode('utf-8')
             except UnicodeDecodeError:
-                bone = k_data[0:15].split(b'\x00')[0].decode('Shift_JIS')
+                bones_name_encoding = "shift_jis"
+                bone = k_data[0:15].split(b'\x00')[0].decode('shift_jis')
                 
             # Frame number
             frame = struct.unpack('I', k_data[15:19])[0]
@@ -148,9 +153,13 @@ if camera != 2:
             # Interpolation data
             i_data = k_data[43:111].hex()
             # Add keyframe to list of keyframes
-            motion_keyframes.append((bone, frame, xc, yc, zc, xr, yr, zr, i_data))
+            motion_keyframes.append((frame, bone, xc, yc, zc, xr, yr, zr, i_data))
             # jump to next frame
             k_data = k_data[111:]
+
+        # Sort based on frame number.
+        motion_keyframes.sort()
+
     else:
         k_data = k_data[111*k_frames:]
 
@@ -172,14 +181,19 @@ if camera != 2:
             if debug:
                 print(k_data[0:73])
             try:
-                bone = k_data[0:15].split(b'\x00')[0].decode('utf-8')
+                blendshape = k_data[0:15].split(b'\x00')[0].decode('utf-8')
             except UnicodeDecodeError:
-                bone = k_data[0:15].split(b'\x00')[0].decode('Shift_JIS')
+                blendshape = k_data[0:15].split(b'\x00')[0].decode('Shift_JIS')
 
             frame = struct.unpack('I', k_data[15:19])[0]
             value = struct.unpack('f', k_data[19:23])[0]
-            face_keyframes.append((bone, frame, value))
+            face_keyframes.append((frame, blendshape, value))
             k_data = k_data[23:]
+
+        
+        # Sort based on frame number.
+        face_keyframes.sort()
+
     else:
         k_data = k_data[23*k_frames:]
 
@@ -215,6 +229,9 @@ if camera:
     if debug:
         pprint(camera_keyframes)
 
+    # Sort based on frame number.
+    camera_keyframes.sort()
+
 try:
     if sys.argv[2] and sys.argv[2][0] != '-':
         output_file = sys.argv[2]
@@ -224,13 +241,16 @@ except IndexError:
 with open(output_file, 'w') as f:
     if debug or verbose:
         print('Writing data to %s.' % output_file)
-    # Add some metadata
-    f.write('%s,%s,%i,%i,%i\n' % (version, model, len(motion_keyframes), len(face_keyframes), len(camera_keyframes)))
+    # Add some metadata. Use hashtag as comment but CSV has no real comment.
+    f.write('#%s;%s;%i;%i;%i;%s;%s\n' % (version, model, len(motion_keyframes), len(face_keyframes), len(camera_keyframes), model_name_encoding, bones_name_encoding))
     if motion:
-        f.write('\n'.join('%s,%i,%f,%f,%f,%f,%f,%f,%s' % x for x in motion_keyframes))
+        f.write('\n'.join('%i;%s;%f;%f;%f;%f;%f;%f;%s' % x for x in motion_keyframes))
+        f.write('\n')
     if face:
-        f.write('\n'.join('%s,%i,%f' % x for x in face_keyframes))
+        f.write('\n'.join('%i;%s;%f' % x for x in face_keyframes))
+        f.write('\n')
     if camera:
-        f.write('\n'.join('%i,%f,%f,%f,%f,%f,%f,%f,%s,%i,%i' % x for x in camera_keyframes))
+        f.write('\n'.join('%i;%f;%f;%f;%f;%f%;f;%f;%s;%i;%i' % x for x in camera_keyframes))
+        f.write('\n')
 if debug or verbose:
     print('Done. Exiting.')

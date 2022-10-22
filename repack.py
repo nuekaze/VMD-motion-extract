@@ -1,11 +1,11 @@
 """
-Author: Nue-class Destroyer
+Author: Nuekaze
 License: BSD 2-Clause "Simplified" License
 """
 import struct, sys
 
 def help():
-    print('Usage: repack.py input.txt [output.vmd] [OPTIONS]\n')
+    print('Usage: repack.py input.csv [output.vmd] [OPTIONS]\n')
     print('\n'.join([
         'List of options',
         '    -m, --motion:   Process motion data.',
@@ -24,7 +24,7 @@ skip = 0
 motion = 0
 face = 0
 camera = 0
-if '-h' in sys.argv  or '--help' in sys.argv:
+if '-h' in sys.argv or '--help' in sys.argv:
     help()
     exit()
 if '-m' in sys.argv or '--motion' in sys.argv:
@@ -67,7 +67,7 @@ if '-d' in sys.argv or '--debug' in sys.argv:
 if '-v' in sys.argv or '--verbose' in sys.argv:
     verbose = 1
 # Enter motion file here or use argument.
-motion_file = 'input.txt'
+motion_file = 'input.csv'
 output_file = 'output.vmd'
 try:
     if sys.argv[1] and sys.argv[1][0] != '-':
@@ -83,36 +83,33 @@ Begin real work
 try:
     with open(motion_file, 'r') as f:
         if debug or verbose:
-            print('Using %s\nLoading TXT file...' % motion_file)
+            print('Using %s\nLoading CSV file...' % motion_file)
         raw = f.readlines()
 except FileNotFoundError:
     print('%s was not found.')
     exit()
 
 # Get meta data
-meta = raw[0].split(',')
-version = bytes.fromhex(meta[0])
-model = bytes.fromhex(meta[1])
+meta = raw[0].split(';')
+model_name_encoding = meta[5]
+bones_name_encoding = meta[6].strip('\n')
+version = meta[0].strip('#').encode('utf-8')
+version = version + b'\x00' * (30 - len(version))
+
+model = meta[1].encode(model_name_encoding)
+if '0001' in version.decode('utf-8'):
+    model = model + b'\x00' * (10 - len(model))
+else:
+    model = model + b'\x00' * (20 - len(model))
+
 motion_frames = int(meta[2])
 face_frames = int(meta[3])
-camera_frames = int(meta[4].strip('\n'))
+camera_frames = int(meta[4])
 
 # Show some info
 if debug or verbose:
     print('MMD version: %s' % version.decode('utf-8'))
-try:
-    if debug or verbose:
-        print('MMD model: %s' % model.replace(b'\x00', b'').decode('utf-8'))
-except UnicodeDecodeError:
-    try:
-        if debug or verbose:
-            print('MMD model: %s' % model.replace(b'\x00', b'').decode('utf-16'))
-    except UnicodeDecodeError:
-        if debug or verbose:
-            print('No model is present. This is probably camera data.\nWill try to process camera data only.')
-        motion = 0
-        face = 0
-        camera = 2
+    print('MMD model: %s' % model.replace(b'\x00', b'').decode(model_name_encoding))
 
 # Process motion keyframes
 motion_keyframes = []
@@ -120,9 +117,10 @@ if debug or verbose:
     print('Motion frames: %i' % motion_frames)
 for kf in raw[1:1+motion_frames]:
     try:
-        kf = kf.strip('\n').split(',')
-        bone = bytes.fromhex(kf[0])
-        frame = bytes(struct.pack('I', int(kf[1])))
+        kf = kf.strip('\n').split(';')
+        frame = bytes(struct.pack('I', int(kf[0])))
+        bone = kf[1].encode(bones_name_encoding)
+        bone = bone + b'\x00' * (15 - len(bone))
         xc = bytes(struct.pack('f', float(kf[2])))
         yc = bytes(struct.pack('f', float(kf[3])))
         zc = bytes(struct.pack('f', float(kf[4])))
@@ -132,7 +130,8 @@ for kf in raw[1:1+motion_frames]:
         i_data = bytes.fromhex(kf[8])
         motion_keyframes.append((bone, frame, xc, yc, zc, xr, yr, zr, i_data))
     except ValueError:
-        print(kf)
+        print("Error at line")
+        print(';'.join(kf))
         exit()
 
 if debug:
@@ -143,9 +142,10 @@ face_keyframes = []
 if debug or verbose:
     print('Face frames: %i' % face_frames)
 for kf in raw[1+motion_frames:1+motion_frames+face_frames]:
-    kf = kf.split(',')
-    bone =  bytes.fromhex(kf[0])
-    frame = bytes(struct.pack('I', int(kf[1])))
+    kf = kf.strip('\n').split(';')
+    frame = bytes(struct.pack('I', int(kf[0])))
+    bone =  kf[1].encode(bones_name_encoding)
+    bone = bone + b'\x00' * (15 - len(bone))
     value = bytes(struct.pack('f', float(kf[2])))
     face_keyframes.append((bone, frame, value))
 
@@ -157,7 +157,7 @@ camera_keyframes = []
 if debug or verbose:
     print('Camera frames: %i' % camera_frames)
 for kf in raw[1+motion_frames+face_frames:1+motion_frames+face_frames+camera_frames]:
-    kf = kf.split(',')
+    kf = kf.strip('\n').split(';')
     frame = bytes(struct.pack('I', int(kf[0])))
     length = bytes(struct.pack('f', float(kf[1])))
     xc = bytes(struct.pack('f', float(kf[2])))
@@ -201,6 +201,6 @@ except IndexError:
 with open(output_file, 'wb') as f:
     if debug or verbose:
         print('Writing data to %s.' % output_file)
-        f.write(b''.join(ready_data))
+    f.write(b''.join(ready_data))
 if debug or verbose:
     print('Done. Exiting.')

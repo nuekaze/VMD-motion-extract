@@ -126,6 +126,7 @@ if debug or verbose:
     print('Motion frames: %i' % k_frames)
 if camera != 2:
     if motion:
+        failed = 0
         if debug or verbose:
             print('Processing motion data. This may take a few seconds...')
         for i in range(k_frames):
@@ -136,8 +137,11 @@ if camera != 2:
             try:
                 bone = k_data[0:15].split(b'\x00')[0].decode('utf-8')
             except UnicodeDecodeError:
-                bones_name_encoding = "shift_jis"
-                bone = k_data[0:15].split(b'\x00')[0].decode('shift_jis')
+                try:
+                    bones_name_encoding = "shift_jis"
+                    bone = k_data[0:15].split(b'\x00')[0].decode('shift_jis')
+                except UnicodeDecodeError:
+                    failed += 1
                 
             # Frame number
             frame = struct.unpack('I', k_data[15:19])[0]
@@ -159,6 +163,8 @@ if camera != 2:
 
         # Sort based on frame number.
         motion_keyframes.sort()
+        if failed:
+            print("Failed to decode %i bone frames." % failed)
 
     else:
         k_data = k_data[111*k_frames:]
@@ -175,6 +181,7 @@ if debug or verbose:
     print('Face frames: %i' % k_frames)
 if camera != 2:
     if face:
+        failed = 0
         if debug or verbose:
             print('Processing face data. This may take a few seconds...')
         for i in range(k_frames):
@@ -183,7 +190,10 @@ if camera != 2:
             try:
                 blendshape = k_data[0:15].split(b'\x00')[0].decode('utf-8')
             except UnicodeDecodeError:
-                blendshape = k_data[0:15].split(b'\x00')[0].decode('Shift_JIS')
+                try:
+                    blendshape = k_data[0:15].split(b'\x00')[0].decode('Shift_JIS')
+                except UnicodeDecodeError:
+                    failed += 1
 
             frame = struct.unpack('I', k_data[15:19])[0]
             value = struct.unpack('f', k_data[19:23])[0]
@@ -193,6 +203,8 @@ if camera != 2:
         
         # Sort based on frame number.
         face_keyframes.sort()
+        if failed:
+            print("Failed to decode %i blendshape frames." % failed)
 
     else:
         k_data = k_data[23*k_frames:]
@@ -250,7 +262,7 @@ with open(output_file, 'w') as f:
         f.write('\n'.join('%i;%s;%f' % x for x in face_keyframes))
         f.write('\n')
     if camera:
-        f.write('\n'.join('%i;%f;%f;%f;%f;%f%;f;%f;%s;%i;%i' % x for x in camera_keyframes))
+        f.write('\n'.join('%i;%f;%f;%f;%f;%f;%f;%f;%s;%i;%i' % x for x in camera_keyframes))
         f.write('\n')
 if debug or verbose:
     print('Done. Exiting.')

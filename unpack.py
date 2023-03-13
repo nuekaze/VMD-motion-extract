@@ -95,8 +95,8 @@ version = raw[0:30].split(b'\x00')[0].decode('utf-8')
 if debug or verbose:
     print('MMD version: %s' % version)
 
-model_name_encoding = ""
-bones_name_encoding = ""
+model_name_encoding = "utf-8"
+bones_name_encoding = "utf-8"
 
 # Sometimes the character model uses UTF-8 and sometimes shift-jis.
 try:

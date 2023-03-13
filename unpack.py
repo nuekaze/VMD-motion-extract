@@ -2,7 +2,7 @@
 Author: Nuekaze
 License: BSD 2-Clause "Simplified" License
 """
-import struct, sys
+import struct, sys, chardet
 
 def help():
     print('Usage: motion.py input.vmd [output.csv] [OPTIONS]\n')
@@ -47,14 +47,14 @@ except IndexError:
     exit()
 
 if not skip:
-    motion = input('Include motion data? [y/N]: ')
-    if motion == 'y' or motion == 'Y':
+    m = input('Include motion data? [y/N]: ')
+    if m == 'y' or m == 'Y':
         motion = 1
-    face = input('Include face data? [y/N]: ')
-    if face == 'y' or face == 'Y':
+    f = input('Include face data? [y/N]: ')
+    if f == 'y' or f == 'Y':
         face = 1
-    camera = input('Include camera data? [y/N]: ')
-    if camera == 'y' or camera == 'Y':
+    c = input('Include camera data? [y/N]: ')
+    if c == 'y' or c == 'Y':
         camera = 1
 
 debug = 0
@@ -95,27 +95,21 @@ version = raw[0:30].split(b'\x00')[0].decode('utf-8')
 if debug or verbose:
     print('MMD version: %s' % version)
 
-model_name_encoding = "utf-8"
-bones_name_encoding = "utf-8"
+model_name_encoding = ""
+bones_name_encoding = ""
 
 # Sometimes the character model uses UTF-8 and sometimes shift-jis.
 try:
-    model = raw[30:50].split(b'\x00')[0].decode('utf-8')
+    model_name_encoding = chardet.detect(raw[30:50])['encoding']
+    model = raw[30:50].split(b'\x00')[0].decode(model_name_encoding)
     if debug or verbose:
         print('MMD model: %s' % model)
 except UnicodeDecodeError:
-    try:
-        model = raw[30:50].split(b'\x00')[0].decode('shift_jis')
-        model_name_encoding = "shift_jis"
-        if debug or verbose:
-            print('MMD model: %s' % model)
-    except UnicodeDecodeError:
-        if debug or verbose:
-            print('No model is present. This is probably camera data.\nWill try to process camera data only.')
-        motion = 0
-        face = 0
-        camera = 2
-        model = raw[30:50].hex()
+    print('No model is present. This is probably camera data.\nWill try to process camera data only.')
+    motion = 0
+    face = 0
+    camera = 2
+    model = raw[30:50].hex()
 
 k_frames = struct.unpack('I', raw[50:54])[0] # Unsigned int, Number of keyframes
 k_data = raw[54:]
@@ -134,32 +128,40 @@ if camera != 2:
                 print(k_data[0:73])
 
             # Bone name. I actually do know how to decode it now.
+            bone = ''
             try:
                 bone = k_data[0:15].split(b'\x00')[0].decode('utf-8')
             except UnicodeDecodeError:
                 try:
-                    bones_name_encoding = "shift_jis"
-                    bone = k_data[0:15].split(b'\x00')[0].decode('shift_jis')
+                    bones_name_encoding = "shift-jis"
+                    bone = k_data[0:15].split(b'\x00')[0].decode('shift-jis')
                 except UnicodeDecodeError:
-                    failed += 1
-                
-            # Frame number
-            frame = struct.unpack('I', k_data[15:19])[0]
+                    try:
+                        bones_name_encoding = chardet.detect(k_data[0:15].split(b'\x00')[0])['encoding']
+                        bone = k_data[0:15].split(b'\x00')[0].decode(bones_name_encoding)
+                    except UnicodeDecodeError:
+                        failed += 1
+                    except TypeError:
+                        failed += 1
+            
+            if bone:
+                # Frame number
+                frame = struct.unpack('I', k_data[15:19])[0]
 
-            # Motion relative to default position
-            xc = struct.unpack('f', k_data[19:23])[0]
-            yc = struct.unpack('f', k_data[23:27])[0]
-            zc = struct.unpack('f', k_data[27:31])[0]
-            xr = struct.unpack('f', k_data[31:35])[0]
-            yr = struct.unpack('f', k_data[35:39])[0]
-            zr = struct.unpack('f', k_data[39:43])[0]
+                # Motion relative to default position
+                xc = struct.unpack('f', k_data[19:23])[0]
+                yc = struct.unpack('f', k_data[23:27])[0]
+                zc = struct.unpack('f', k_data[27:31])[0]
+                xr = struct.unpack('f', k_data[31:35])[0]
+                yr = struct.unpack('f', k_data[35:39])[0]
+                zr = struct.unpack('f', k_data[39:43])[0]
 
-            # Interpolation data
-            i_data = k_data[43:111].hex()
-            # Add keyframe to list of keyframes
-            motion_keyframes.append((frame, bone, xc, yc, zc, xr, yr, zr, i_data))
-            # jump to next frame
-            k_data = k_data[111:]
+                # Interpolation data
+                i_data = k_data[43:111].hex()
+                # Add keyframe to list of keyframes
+                motion_keyframes.append((frame, bone, xc, yc, zc, xr, yr, zr, i_data))
+                # jump to next frame
+                k_data = k_data[111:]
 
         # Sort based on frame number.
         motion_keyframes.sort()
